@@ -10,6 +10,7 @@ using namespace royale;
 using namespace std;
 using namespace cv;
 
+
 // this represents the main camera device object
 static std::unique_ptr<ICameraDevice> cameraDevice;
 static CamListener listener;
@@ -19,7 +20,9 @@ static void onMouse( int event, int x, int y, int, void* )
     if( event != EVENT_LBUTTONDOWN )
         return;
     Vec3f point = listener.xyzMap.at<Vec3f>(y, x);
-	printf("Depth point in(cm): x=%.2f\ty=%.2f\tz=%.2f \n", point[0]*100, point[1]*100, point[2]*100 );
+    uint8_t confidence = listener.confMap.at<uint8_t>(y,x);
+	printf("Depth point(cm): x=%.2f\ty=%.2f\tz=%.2f\t Confidence=%.2f\n", 
+			point[0]*100, point[1]*100, point[2]*100, (float)confidence*100/255 );
 }
 
 int main (int argc, char *argv[])
@@ -38,13 +41,18 @@ int main (int argc, char *argv[])
 	auto result = options.parse(argc, argv);
 	
 	// windows
-	namedWindow ("Gray", WINDOW_AUTOSIZE);
+	namedWindow ("Gray", WINDOW_AUTOSIZE);	
     namedWindow ("Depth", WINDOW_AUTOSIZE);
-    namedWindow ("FloodFill", WINDOW_AUTOSIZE);
-    namedWindow ("[Plane Debug]", WINDOW_AUTOSIZE);
-    namedWindow ("NormalMap", WINDOW_AUTOSIZE);
-    
     setMouseCallback( "Depth", onMouse, 0 );
+    
+    namedWindow ("Projector", WINDOW_NORMAL);
+    setWindowProperty("Projector", WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
+    moveWindow("Projector", 1366, 0);
+    Mat mid(72,128, CV_8U, Scalar(0));
+    circle(mid, Point(64, 36), 3, 120);
+    circle(mid, Point(64, 36), 1, 255);
+    imshow("Projector", mid);
+   
 	
     {
         CameraManager manager;

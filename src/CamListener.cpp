@@ -22,7 +22,6 @@ void CamListener::initialize(uint16_t width, uint16_t height)
     grayImage.create (Size (cam_width,cam_height), CV_16UC1);
     xyzMap.create(Size (cam_width,cam_height), CV_32FC3);
     confMap.create(Size (cam_width,cam_height), CV_8UC1);
-    
     planeDetector = std::make_shared<PlaneDetector>();
 
     LOGD("Cam listener initialized with (%d,%d)", width, height);
@@ -77,8 +76,10 @@ void CamListener::processImages()
     }
     vector<Mat> channels(3);
     split(xyzMap, channels);
-    medianBlur(channels[2], channels[2], 3); // 7 for low exposure
+    // blur image (7 for low exposure)
+    medianBlur(channels[2], channels[2], 3);
     setChannel(xyzMap, channels[2]);
+    
     if(visualizeImage(channels[2], depthImage8, 1.0, true))
     {
     	imshow("Depth", depthImage8);
