@@ -33,20 +33,20 @@ void CamListener::setLensParameters (LensParameters lensParameters)
    // (fx   0    cx)
    // (0    fy   cy)
    // (0    0    1 )
-   cameraMatrix = (Mat1d (3, 3) << lensParameters.focalLength.first, 0, lensParameters.principalPoint.first,
+   cameraMatrix = (Mat1f (3, 3) << lensParameters.focalLength.first, 0, lensParameters.principalPoint.first,
    0, lensParameters.focalLength.second, lensParameters.principalPoint.second,
    0, 0, 1);
-   /*LOGI("Camera params fx fy cx cy: %f,%f,%f,%f", lensParameters.focalLength.first, lensParameters.focalLength.second,
+/*   LOGI("Camera params fx fy cx cy: %f,%f,%f,%f", lensParameters.focalLength.first, lensParameters.focalLength.second,
    lensParameters.principalPoint.first, lensParameters.principalPoint.second); */
 
    // Construct the distortion coefficients
    // k1 k2 p1 p2 k3
-   distortionCoefficients = (Mat1d (1, 5) << lensParameters.distortionRadial[0],
+   distortionCoefficients = (Mat1f (1, 5) << lensParameters.distortionRadial[0],
    lensParameters.distortionRadial[1],
    lensParameters.distortionTangential.first,
    lensParameters.distortionTangential.second,
    lensParameters.distortionRadial[2]);
-   /*LOGI("Dist coeffs k1 k2 p1 p2 k3 : %f,%f,%f,%f,%f", lensParameters.distortionRadial[0],
+ /* LOGI("Dist coeffs k1 k2 p1 p2 k3 : %f,%f,%f,%f,%f", lensParameters.distortionRadial[0],
    lensParameters.distortionRadial[1],
    lensParameters.distortionTangential.first,
    lensParameters.distortionTangential.second,
@@ -68,11 +68,9 @@ void CamListener::onNewData (const DepthData *data)
    processImages();
 }
 
-
 void CamListener::processImages()
 {
    visualizeImage(grayImage, grayImage8, 1.0);
-   imshow("Gray", grayImage8);
 
    vector<Mat> channels(3);
    split(xyzMap, channels);
@@ -110,11 +108,39 @@ void CamListener::processImages()
    for(auto plane: planes){
       auto eq = plane->getNormalVector();
       //LOGD("Normal: (%.3f, %.3f, %.3f)", eq[0], eq[1], eq[2]);
-      Vec3f corner = findProjectionCorner(plane->equation);
-      LOGD("Corner(cm): (%.3f, %.3f, %.3f)", corner[0]*100, corner[1]*100, corner[2]*100);
+      Vec3f corner = findProjectionCorner(plane->equation, hor_fov*-1, ver_fov);
+      Point2f im(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
+      			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
+      Point2i distIm = distort(im);
+      grayImage8.at<uint8_t>(distIm.y, distIm.x) = 0;
+      LOGD("TopLeft(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, distIm.x,distIm.y);
+      
+      corner = findProjectionCorner(plane->equation, hor_fov, ver_fov);
+      im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
+      			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
+      distIm = distort(im);
+      grayImage8.at<uint8_t>(distIm.y, distIm.x) = 0;
+      LOGD("TopRight:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, distIm.x,distIm.y);
+      
+      corner = findProjectionCorner(plane->equation, hor_fov*-1, ver_fov*-1);
+      im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
+      			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
+      distIm = distort(im);
+      grayImage8.at<uint8_t>(distIm.y, distIm.x) = 0;
+      LOGD("BottomLeft:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, distIm.x,distIm.y);
+      
+      corner = findProjectionCorner(plane->equation, hor_fov, ver_fov*-1);
+      im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
+      			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
+      distIm = distort(im);
+      grayImage8.at<uint8_t>(distIm.y, distIm.x) = 0;
+      LOGD("BottomRight:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, distIm.x,distIm.y);
+      
    }
+   resize(grayImage8, grayImage8, Size(), 3,3);
+   imshow("Gray", grayImage8);
    
-
+   
    /*Mat normalMap = planeDetector -> getNormalMap();
    normalize (normalMap, normalMap, 0, 255, NORM_MINMAX, CV_8UC3);
    resize(normalMap, normalMap, normalMap.size()*3,0, 0, INTER_NEAREST);
@@ -176,7 +202,7 @@ bool CamListener::visualizeImage(const Mat & src, Mat & dest, float resize_facto
    if(!src.empty()){
       normalize(src, dest, 0, 255, NORM_MINMAX, CV_8UC1);
       if(color) applyColorMap(dest, dest, COLORMAP_JET);
-      resize(dest, dest, Size(), resize_factor,resize_factor);
+      if(resize_factor != 1) resize(dest, dest, Size(), resize_factor,resize_factor);
       return true;
    }
    return false;
@@ -319,18 +345,51 @@ Vec3f NearestPointOnLine(Vec3f linePnt, Vec3f lineDir, Vec3f pnt)
 }
 
 // return topleft corner only in meter ( p is plane equation z = p[0]x + p[1]y + p[2] ) 
-Vec3f CamListener::findProjectionCorner(Vec3f p) 
+Vec3f CamListener::findProjectionCorner(Vec3f p, float angle_h, float angle_v) 
 {
 	Vec3f v1(projAxis[0], projAxis[1], projAxis[2]);
 	Vec3f tr = NearestPointOnLine(Vec3f(projAxis[3], projAxis[4], projAxis[5]), v1, Vec3f(0,0,0));
 	float gamma = atan(v1[1]/v1[2]);
 	Vec3f r1(0, cos(gamma), sin(gamma));
-	Vec3f v2 = rotate(v1, r1, hor_fov);
-    Vec3f r2 = rotate(Vec3f(1,0,0), r1, hor_fov);
-    Vec3f v3 = rotate(v2,r2,ver_fov);
+	Vec3f v2 = rotate(v1, r1, angle_h);
+    Vec3f r2 = rotate(Vec3f(1,0,0), r1, angle_h);
+    Vec3f v3 = rotate(v2,r2,angle_v);
     
     float t = (p[0]*tr[0] + p[1]*tr[1] + p[2] - tr[2]) / (v3[2] - p[0]*v3[0] - p[1]*v3[1] ) ;
     return Vec3f(v3[0]*t + tr[0], v3[1]*t + tr[1], v3[2]*t + tr[2]);
+}
+
+Point2i CamListener::distort(Point2f point)
+{
+	float cx = cameraMatrix.at<float>(0,2);
+	float cy = cameraMatrix.at<float>(1,2);
+	float fx = cameraMatrix.at<float>(0,0);
+	float fy = cameraMatrix.at<float>(1,1);
+	float k1 = distortionCoefficients.at<float>(0,0);
+	float k2 = distortionCoefficients.at<float>(0,1);
+	float p1 = distortionCoefficients.at<float>(0,2);
+	float p2 = distortionCoefficients.at<float>(0,3);
+	float k3 = distortionCoefficients.at<float>(0,4);
+
+    // To relative coordinates <- this is the step you are missing.
+    double x = (point.x - cx) / fx;
+    double y = (point.y - cy) / fy;
+
+    double r2 = x*x + y*y;
+
+    // Radial distorsion
+    double xDistort = x * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
+    double yDistort = y * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
+
+    // Tangential distorsion
+    xDistort = xDistort + (2 * p1 * x * y + p2 * (r2 + 2 * x * x));
+    yDistort = yDistort + (p1 * (r2 + 2 * y * y) + 2 * p2 * x * y);
+
+    // Back to absolute coordinates.
+    xDistort = xDistort * fx + cx;
+    yDistort = yDistort * fy + cy;
+
+    return Point2d((int)xDistort, (int)yDistort);
 }
 
 
