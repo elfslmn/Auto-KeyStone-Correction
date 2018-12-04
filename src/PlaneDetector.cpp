@@ -51,14 +51,18 @@ namespace ark {
         if(equations.size() != 0) std::cout << "PLANE DETECTED !! : " << equations.size() << std::endl;
         #endif
         for (uint i = 0; i < equations.size(); ++i) {
-           #ifdef DEBUG
-           std::cout << equations[i]<< std::endl;
-           #endif
             FramePlane::Ptr planePtr = std::make_shared<FramePlane>
                 (equations[i], points[i], pointsXYZ[i], image, params);
 
             if (planePtr->getSurfArea() > params->planeMinArea) {
                 planes.emplace_back(planePtr);
+                #ifdef DEBUG
+                Vec3f normal = planePtr->getNormalVector();
+		        std::cout << "Equation: " <<equations[i]
+		        		  << "\nNormal: " << normal
+		        		  << "\narctan(x/z): "<< atan(normal[0]/normal[2])*180/PI 
+		        		  << "\narctan(y/z): "<< atan(normal[1]/normal[2])*180/PI << std::endl;
+		        #endif
             }
         }
 
