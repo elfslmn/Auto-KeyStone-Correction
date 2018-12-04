@@ -21,6 +21,8 @@ using namespace ark;
 class CamListener : public royale::IDepthDataListener {
 
 const int MARGIN = 10;
+const float hor_fov = 0.328; // in radian
+const float ver_fov = 0.190;
 
 public:
     // Constructors
@@ -30,11 +32,15 @@ public:
     void startRecord(string destFolder);
     void stopRecord();
     void processImages();
-        
+    void saveCenterPoint();
+    void calculateProjectionAxis();
+
     Mat xyzMap, confMap;
     Mat grayImage;
     Mat depthImage8, grayImage8;
-    
+    vector<Vec3f> centers;
+    Vec6f projAxis;
+
     bool isRecording = false;
 
 private:
@@ -45,21 +51,19 @@ private:
     void updateMaps(const DepthData* data, bool flip=false);
     bool saveFrame(int frame);
     void setChannel(Mat & xyzMap, Mat & zChannel);
-    
+    Vec3f findProjectionCorner(Vec3f p);
+
     // Private variables
     uint16_t cam_width, cam_height;
 
     Mat cameraMatrix, distortionCoefficients;
 
     mutex flagMutex;
-    
+
     int frame = 0;
     string recordFolder = "record\\";
-    
+
     PlaneDetector::Ptr planeDetector;
     vector<FramePlane::Ptr> planes;
 
 };
-
-
-

@@ -71,26 +71,7 @@ void CamListener::onNewData (const DepthData *data)
 
 void CamListener::processImages()
 {
-   // Find retro in gray
-   vector<vector<Point> > retro_contours;
-   Mat grayBin;
-   threshold(grayImage, grayBin, 500, 255, CV_THRESH_BINARY);
-   grayBin.convertTo(grayBin, CV_8UC1);
-   findContours(grayBin, retro_contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
-
    visualizeImage(grayImage, grayImage8, 1.0);
-   for (unsigned int i = 0; i < retro_contours.size(); i++)
-   {
-      Moments mu = moments(retro_contours[i], false);
-      int u = mu.m10 / mu.m00;
-      int v = mu.m01 / mu.m00;
-      if(u >= cam_width || u < 0 || v >= cam_height || v < 0 )  continue;
-      Vec3f point = xyzMap.at<Vec3f>(v,u)*100;
-      uint8_t confidence = confMap.at<uint8_t>(v,u);
-      printf("Depth point: u=%d\tv=%d\tx=%.2f\ty=%.2f\tz=%.2f\t conf=%.2f\n"
-            ,u, v, point[0],point[1],point[2], (float)confidence*100/255 );
-   }
-
    imshow("Gray", grayImage8);
 
    vector<Mat> channels(3);
@@ -103,7 +84,7 @@ void CamListener::processImages()
    {
       imshow("Depth", depthImage8);
    }
-
+   
    /*Mat hist;
    int histSize = 100;
    float range[] = { 0, 0.5} ;
@@ -124,14 +105,17 @@ void CamListener::processImages()
    }
    imshow("Histogram", histImage ); */
 
-   /*planeDetector->update(xyzMap);
+   planeDetector->update(xyzMap);
    planes = planeDetector -> getPlanes();
    for(auto plane: planes){
       auto eq = plane->getNormalVector();
-      LOGD("Normal: (%.3f, %.3f, %.3f)", eq[0], eq[1], eq[2]);
+      //LOGD("Normal: (%.3f, %.3f, %.3f)", eq[0], eq[1], eq[2]);
+      Vec3f corner = findProjectionCorner(plane->equation);
+      LOGD("Corner(cm): (%.3f, %.3f, %.3f)", corner[0]*100, corner[1]*100, corner[2]*100);
    }
+   
 
-   Mat normalMap = planeDetector -> getNormalMap();
+   /*Mat normalMap = planeDetector -> getNormalMap();
    normalize (normalMap, normalMap, 0, 255, NORM_MINMAX, CV_8UC3);
    resize(normalMap, normalMap, normalMap.size()*3,0, 0, INTER_NEAREST);
    imshow("NormalMap", normalMap); */
@@ -271,3 +255,100 @@ void CamListener::setChannel(Mat & xyzMap, Mat & zChannel)
       }
    }
 }
+
+void CamListener::saveCenterPoint()
+{
+   lock_guard<mutex> lock (flagMutex);
+   // Find retro in gray
+   vector<vector<Point> > retro_contours;
+   Mat grayBin;
+   threshold(grayImage, grayBin, 500, 255, CV_THRESH_BINARY);
+   grayBin.convertTo(grayBin, CV_8UC1);
+   findContours(grayBin, retro_contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+   
+   if(retro_contours.size() != 1){
+   	  printf("More than 1 retro. Point not added. Current pts count = %d\n", centers.size());
+   	  return ;
+   }
+   
+   Moments mu = moments(retro_contours[0], false);
+   int u = mu.m10 / mu.m00;
+   int v = mu.m01 / mu.m00;
+   if(u >= cam_width || u < 0 || v >= cam_height || v < 0 ){
+   		printf("Center(%d,%d) outside of the range. Point not added. Current pts count = %d\n",u,v, centers.size());
+   	    return ;
+   }
+   
+   Vec3f point = xyzMap.at<Vec3f>(v,u);
+   uint8_t confidence = confMap.at<uint8_t>(v,u);
+   printf("Depth point: x=%.2f\ty=%.2f\tz=%.2f\t u=%d\tv=%d\t conf=%.2f\n"
+            ,point[0], point[1], point[2], u, v, (float)confidence*100/255 );
+   if(confidence > 200){
+   		centers.push_back(point);
+   		printf("Point added. Current pts count = %d\n", centers.size());
+   }
+   else{
+   		printf("Low confidence. Point not added. Current pts count = %d\n", centers.size());
+   }
+}
+
+void CamListener::calculateProjectionAxis()
+{
+   cv::fitLine(centers, projAxis, CV_DIST_L2, 0, 0.01, 0.01);
+   printf("Vector : (%.3f,%.3f,%.3f)\n", projAxis[0], projAxis[1], projAxis[2]);
+   printf("Point  : (%.3f,%.3f,%.3f) -> mean of points\n", projAxis[3], projAxis[4], projAxis[5]);
+   cv::FileStorage fs("Projector", cv::FileStorage::WRITE);
+   fs << "projAxis" << projAxis;
+   fs.release();
+}
+
+Vec3f rotate(const Vec3f &in, const Vec3f &axis, float angle)
+{
+	float a = cos(angle);
+	float s = sin(angle);
+	Vec3f w( s*axis[0], s*axis[1], s*axis[2]);
+	Vec3f cr = w.cross(in);
+	return ( in + 2*a*cr + 2*(w.cross(cr)));
+}
+
+Vec3f NearestPointOnLine(Vec3f linePnt, Vec3f lineDir, Vec3f pnt)
+{
+    auto v = pnt - linePnt;
+    auto d = v[0]*lineDir[0] + v[1]*lineDir[1] + v[2]*lineDir[2];
+    return linePnt + lineDir * d;
+}
+
+// return topleft corner only in meter ( p is plane equation z = p[0]x + p[1]y + p[2] ) 
+Vec3f CamListener::findProjectionCorner(Vec3f p) 
+{
+	Vec3f v1(projAxis[0], projAxis[1], projAxis[2]);
+	Vec3f tr = NearestPointOnLine(Vec3f(projAxis[3], projAxis[4], projAxis[5]), v1, Vec3f(0,0,0));
+	float gamma = atan(v1[1]/v1[2]);
+	Vec3f r1(0, cos(gamma), sin(gamma));
+	Vec3f v2 = rotate(v1, r1, hor_fov);
+    Vec3f r2 = rotate(Vec3f(1,0,0), r1, hor_fov);
+    Vec3f v3 = rotate(v2,r2,ver_fov);
+    
+    float t = (p[0]*tr[0] + p[1]*tr[1] + p[2] - tr[2]) / (v3[2] - p[0]*v3[0] - p[1]*v3[1] ) ;
+    return Vec3f(v3[0]*t + tr[0], v3[1]*t + tr[1], v3[2]*t + tr[2]);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -44,7 +44,8 @@ int main (int argc, char *argv[])
    namedWindow ("Gray", WINDOW_AUTOSIZE);
    namedWindow ("Depth", WINDOW_AUTOSIZE);
    setMouseCallback( "Depth", onMouse, 0 );
-   namedWindow ("Histogram", WINDOW_AUTOSIZE);
+   namedWindow ("[Plane Debug]", WINDOW_AUTOSIZE);
+   namedWindow ("FloodFill", WINDOW_AUTOSIZE);
 
    /*namedWindow ("Projector", WINDOW_NORMAL);
    setWindowProperty("Projector", WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
@@ -222,6 +223,11 @@ int main (int argc, char *argv[])
       return 1;
    }
    listener.setLensParameters (lensParameters);
+   FileStorage fs2("Projector", FileStorage::READ);
+   fs2["projAxis"] >> listener.projAxis;
+   /*listener.projAxis[3] *= -1;
+   listener.projAxis[4] *= -1;
+   listener.projAxis[5] *= -1;*/
 
    // register a data listener
    if (cameraDevice->registerDataListener (&listener) != CameraStatus::SUCCESS)
@@ -262,10 +268,15 @@ int main (int argc, char *argv[])
          }
 
       }
-      if(currentKey == 's')
+      else if(currentKey == 's')
       {
-
+		 listener.saveCenterPoint();
       }
+      else if(currentKey == 'a')
+      {
+		 listener.calculateProjectionAxis();
+      }
+    
    }
 
    // stop capture mode
