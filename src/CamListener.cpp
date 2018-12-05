@@ -82,60 +82,45 @@ void CamListener::processImages()
    {
       imshow("Depth", depthImage8);
    }
-   
-   /*Mat hist;
-   int histSize = 100;
-   float range[] = { 0, 0.5} ;
-   const float* histRange = { range };
-   calcHist( &channels[2], 1, 0, grayBin, hist, 1, &histSize, &histRange, true, false );
-   // Draw the histograms for B, G and R
-   int hist_w = 512, hist_h = 400;
-   int bin_w = cvRound( (double) hist_w/histSize );
-   Mat histImage( hist_h, hist_w, CV_8UC1, Scalar( 0) );
-   normalize(hist, hist, 0, histImage.rows, NORM_MINMAX, -1, Mat() );
-
-   /// Draw for each channel
-   for( int i = 1; i < histSize; i++ )
-   {
-       line( histImage, Point( bin_w*(i-1), hist_h - cvRound(hist.at<float>(i-1)) ) ,
-                        Point( bin_w*(i), hist_h - cvRound(hist.at<float>(i)) ),
-                        255, 2, 8, 0  );
-   }
-   imshow("Histogram", histImage ); */
-
+  
    planeDetector->update(xyzMap);
    planes = planeDetector -> getPlanes();
    for(auto plane: planes){
-      auto eq = plane->getNormalVector();
-      //LOGD("Normal: (%.3f, %.3f, %.3f)", eq[0], eq[1], eq[2]);
       Vec3f corner = findProjectionCorner(plane->equation, hor_fov*-1, ver_fov);
       Point2f im(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
       			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
       Point2i distIm = distort(im);
-      grayImage8.at<uint8_t>(distIm.y, distIm.x) = 0;
-      LOGD("TopLeft(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, distIm.x,distIm.y);
+      int x = distIm.x; 
+      int y = distIm.y;
+      if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+      LOGD("TopLeft(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, x,y);
       
       corner = findProjectionCorner(plane->equation, hor_fov, ver_fov);
       im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
       			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
       distIm = distort(im);
-      grayImage8.at<uint8_t>(distIm.y, distIm.x) = 0;
-      LOGD("TopRight:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, distIm.x,distIm.y);
+      x = distIm.x; 
+      y = distIm.y;
+      if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+      LOGD("TopRight:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100,x,y);
       
       corner = findProjectionCorner(plane->equation, hor_fov*-1, ver_fov*-1);
       im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
       			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
       distIm = distort(im);
-      grayImage8.at<uint8_t>(distIm.y, distIm.x) = 0;
-      LOGD("BottomLeft:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, distIm.x,distIm.y);
+      x = distIm.x; 
+      y = distIm.y;
+      if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+      LOGD("BottomLeft:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100,x,y);
       
       corner = findProjectionCorner(plane->equation, hor_fov, ver_fov*-1);
       im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
       			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
       distIm = distort(im);
-      grayImage8.at<uint8_t>(distIm.y, distIm.x) = 0;
-      LOGD("BottomRight:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, distIm.x,distIm.y);
-      
+      x = distIm.x; 
+      y = distIm.y;
+      if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+      LOGD("BottomRight:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100,x,y);      
    }
    resize(grayImage8, grayImage8, Size(), 3,3);
    imshow("Gray", grayImage8);
@@ -388,7 +373,7 @@ Point2i CamListener::distort(Point2f point)
     // Back to absolute coordinates.
     xDistort = xDistort * fx + cx;
     yDistort = yDistort * fy + cy;
-
+	
     return Point2d((int)xDistort, (int)yDistort);
 }
 

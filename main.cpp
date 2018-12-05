@@ -60,6 +60,7 @@ int main (int argc, char *argv[])
       CameraManager manager;
       FileStorage fs2("Projector", FileStorage::READ);
       fs2["projAxis"] >> listener.projAxis;
+      fs2.release();
 
       // check if any record folder is given
       if (result.count("f"))
@@ -78,14 +79,18 @@ int main (int argc, char *argv[])
             }
          }
          sort(file_names.begin(), file_names.end());
+         
+         // initialize cam listener
          listener.initialize(224, 171);
-
+         FileStorage fs1(file_path+"/Specs", FileStorage::READ);
+         fs1["cameraMatrix"] >> listener.cameraMatrix;
+         fs1["distortionCoefficients"] >> listener.distortionCoefficients;
+       
          string path;
          bool stop = false;
          for(int i=0; i< file_names.size();)
          {
             FileStorage fs2(file_names[i], FileStorage::READ);
-
             fs2["grayImage"] >> listener.grayImage;
             fs2["xyzMap"] >> listener.xyzMap;
             listener.processImages();
