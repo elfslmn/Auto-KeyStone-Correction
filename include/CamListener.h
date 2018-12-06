@@ -53,12 +53,17 @@ private:
     void updateMaps(const DepthData* data, bool flip=false);
     bool saveFrame(int frame);
     void setChannel(Mat & xyzMap, Mat & zChannel);
-    Vec3f findProjectionCorner(Vec3f p, float angle_h, float angle_v);
-    Point2i distort(Point2f point);
+    void calculateProjCornerPos(Vec3f plane);
+    Point2i distort(Point2i point);
+    Point2i findPixelCoord(Vec3f xyz);
+    void calculateProjectionCornerVectors();
 
     // Private variables
     uint16_t cam_width, cam_height;
     mutex flagMutex;
+    vector<Vec3f> projCornerVectors;
+    vector<Vec3f> projCornerXyz;
+    Vec3f translation;
 
     int frame = 0;
     string recordFolder = "record\\";

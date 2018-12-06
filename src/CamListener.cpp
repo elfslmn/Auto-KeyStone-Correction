@@ -23,6 +23,9 @@ void CamListener::initialize(uint16_t width, uint16_t height)
    xyzMap.create(Size (cam_width,cam_height), CV_32FC3);
    confMap.create(Size (cam_width,cam_height), CV_8UC1);
    planeDetector = std::make_shared<PlaneDetector>();
+   
+   calculateProjectionCornerVectors();
+   projCornerXyz = vector<Vec3f>(4,Vec3f(0,0,0));
 
    LOGD("Cam listener initialized with (%d,%d)", width, height);
 }
@@ -86,41 +89,36 @@ void CamListener::processImages()
    planeDetector->update(xyzMap);
    planes = planeDetector -> getPlanes();
    for(auto plane: planes){
-      Vec3f corner = findProjectionCorner(plane->equation, hor_fov*-1, ver_fov);
-      Point2f im(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
-      			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
-      Point2i distIm = distort(im);
+      calculateProjCornerPos(plane->equation);
+      
+      Vec3f corner = projCornerXyz[0];
+      Point2i distIm = distort(findPixelCoord(corner));
       int x = distIm.x; 
       int y = distIm.y;
       if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      LOGD("TopLeft(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, x,y);
+      LOGD("TL(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, x,y);
       
-      corner = findProjectionCorner(plane->equation, hor_fov, ver_fov);
-      im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
-      			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
-      distIm = distort(im); // Distortion for debug. Keystone yaparken distort etme.
+      corner = projCornerXyz[1];
+      distIm = distort(findPixelCoord(corner));
       x = distIm.x; 
       y = distIm.y;
       if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      LOGD("TopRight:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100,x,y);
+      LOGD("BL(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, x,y);
       
-      corner = findProjectionCorner(plane->equation, hor_fov*-1, ver_fov*-1);
-      im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
-      			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
-      distIm = distort(im);
+      corner = projCornerXyz[2];
+      distIm = distort(findPixelCoord(corner));
       x = distIm.x; 
       y = distIm.y;
       if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      LOGD("BottomLeft:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100,x,y);
+      LOGD("TR(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, x,y);
       
-      corner = findProjectionCorner(plane->equation, hor_fov, ver_fov*-1);
-      im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
-      			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
-      distIm = distort(im);
+      corner = projCornerXyz[3];
+      distIm = distort(findPixelCoord(corner));
       x = distIm.x; 
       y = distIm.y;
       if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      LOGD("BottomRight:\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100,x,y);      
+      LOGD("BR(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner[0]*100, corner[1]*100, corner[2]*100, x,y);
+
    }
    resize(grayImage8, grayImage8, Size(), 3,3);
    imshow("Gray", grayImage8);
@@ -330,22 +328,55 @@ Vec3f NearestPointOnLine(Vec3f linePnt, Vec3f lineDir, Vec3f pnt)
 }
 
 // ( p is plane equation z = p[0]x + p[1]y + p[2] ) 
-Vec3f CamListener::findProjectionCorner(Vec3f p, float angle_h, float angle_v) 
+void CamListener::calculateProjCornerPos(Vec3f p) 
 {
+	float t;
+	for(int i=0; i < 4; i++){
+		Vec3f v = projCornerVectors[i];
+		t = (p[0]*translation[0] + p[1]*translation[1] + p[2] - translation[2]) 
+			/ (v[2] - p[0]*v[0] - p[1]*v[1] ) ;
+		projCornerXyz[i] = Vec3f(v[0]*t + translation[0], v[1]*t + translation[1], v[2]*t + translation[2]);
+	}
+    
+}
+
+void CamListener::calculateProjectionCornerVectors(){
+	if(projAxis[0] == 0)
+	{
+		LOGE("Projection axis not found!");
+		return;
+	}
 	Vec3f v1(projAxis[0], projAxis[1], projAxis[2]);
-	Vec3f tr = NearestPointOnLine(Vec3f(projAxis[3], projAxis[4], projAxis[5]), v1, Vec3f(0,0,0));
+	translation = NearestPointOnLine(Vec3f(projAxis[3], projAxis[4], projAxis[5]), v1, Vec3f(0,0,0));
+	
 	float gamma = std::atan(v1[1]/v1[2]);
 	Vec3f r1(0, std::cos(gamma), std::sin(gamma));
+	
+	// Top Left
+	float angle_h = hor_fov*-1;
+	float angle_v = ver_fov;
 	Vec3f v2 = rotate(v1, r1, angle_h);
     Vec3f r2 = rotate(Vec3f(1,0,0), r1, angle_h);
     Vec3f v3 = rotate(v2,r2,angle_v);
-    // TODO burdan yukarıyı bir kere hesaplayıp kaydet. ( Kose vektorleri değişmiyor çunku)
-    
-    float t = (p[0]*tr[0] + p[1]*tr[1] + p[2] - tr[2]) / (v3[2] - p[0]*v3[0] - p[1]*v3[1] ) ;
-    return Vec3f(v3[0]*t + tr[0], v3[1]*t + tr[1], v3[2]*t + tr[2]);
+    projCornerVectors.push_back(v3);
+    // Bottom Left
+    angle_v = ver_fov*-1;
+    v3 = rotate(v2,r2,angle_v);
+    projCornerVectors.push_back(v3);
+    // Top Right
+	angle_h = hor_fov;
+	angle_v = ver_fov;
+	v2 = rotate(v1, r1, angle_h);
+    r2 = rotate(Vec3f(1,0,0), r1, angle_h);
+    v3 = rotate(v2,r2,angle_v);
+    projCornerVectors.push_back(v3);
+    // Bottom Right
+    angle_v = ver_fov*-1;
+    v3 = rotate(v2,r2,angle_v);
+    projCornerVectors.push_back(v3);
 }
 
-Point2i CamListener::distort(Point2f point)
+Point2i CamListener::distort(Point2i point)
 {
 	float cx = cameraMatrix.at<float>(0,2);
 	float cy = cameraMatrix.at<float>(1,2);
@@ -357,15 +388,15 @@ Point2i CamListener::distort(Point2f point)
 	float p2 = distortionCoefficients.at<float>(0,3);
 	float k3 = distortionCoefficients.at<float>(0,4);
 
-    // To relative coordinates <- this is the step you are missing.
-    double x = (point.x - cx) / fx;
-    double y = (point.y - cy) / fy;
+    // To relative coordinates 
+    float x = ((float)point.x - cx) / fx;
+    float y = ((float)point.y - cy) / fy;
 
-    double r2 = x*x + y*y;
+    float r2 = x*x + y*y;
 
     // Radial distorsion
-    double xDistort = x * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
-    double yDistort = y * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
+    float xDistort = x * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
+    float yDistort = y * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
 
     // Tangential distorsion
     xDistort = xDistort + (2 * p1 * x * y + p2 * (r2 + 2 * x * x));
@@ -375,7 +406,14 @@ Point2i CamListener::distort(Point2f point)
     xDistort = xDistort * fx + cx;
     yDistort = yDistort * fy + cy;
 	
-    return Point2d((int)xDistort, (int)yDistort);
+    return Point2i((int)xDistort, (int)yDistort);
+}
+
+Point2i CamListener::findPixelCoord(Vec3f xyz)
+{   			    
+   int x = xyz[0]*cameraMatrix.at<float>(0,0)/xyz[2] + cameraMatrix.at<float>(0,2);
+   int y = xyz[1]*cameraMatrix.at<float>(1,1)/xyz[2] + cameraMatrix.at<float>(1,2);
+   return Point2i(x,y);
 }
 
 
