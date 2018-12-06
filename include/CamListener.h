@@ -22,8 +22,8 @@ class CamListener : public royale::IDepthDataListener {
 
 const int MARGIN = 10;
 // 2 ye bolunce daha iyi sonuç veriyor ama bolmeden zaten yarım fov??
-const float hor_fov = 0.17; // in radian
-const float ver_fov = 0.095;
+const float hor_fov = 0.328/2; // in radian
+const float ver_fov = 0.190/2;
 
 public:
     // Constructors

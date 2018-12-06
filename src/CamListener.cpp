@@ -98,7 +98,7 @@ void CamListener::processImages()
       corner = findProjectionCorner(plane->equation, hor_fov, ver_fov);
       im = Point2f(corner[0]*cameraMatrix.at<float>(0,0)/corner[2] + cameraMatrix.at<float>(0,2),
       			    corner[1]*cameraMatrix.at<float>(1,1)/corner[2] + cameraMatrix.at<float>(1,2));
-      distIm = distort(im);
+      distIm = distort(im); // Distortion for debug. Keystone yaparken distort etme.
       x = distIm.x; 
       y = distIm.y;
       if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
@@ -315,8 +315,8 @@ void CamListener::calculateProjectionAxis()
 
 Vec3f rotate(const Vec3f &in, const Vec3f &axis, float angle)
 {
-	float a = cos(angle);
-	float s = sin(angle);
+	float a = std::cos(angle);
+	float s = std::sin(angle);
 	Vec3f w( s*axis[0], s*axis[1], s*axis[2]);
 	Vec3f cr = w.cross(in);
 	return ( in + 2*a*cr + 2*(w.cross(cr)));
@@ -325,20 +325,21 @@ Vec3f rotate(const Vec3f &in, const Vec3f &axis, float angle)
 Vec3f NearestPointOnLine(Vec3f linePnt, Vec3f lineDir, Vec3f pnt)
 {
     auto v = pnt - linePnt;
-    auto d = v[0]*lineDir[0] + v[1]*lineDir[1] + v[2]*lineDir[2];
+    auto d = v[0]*lineDir[0] + v[1]*lineDir[1] + v[2]*lineDir[2]; // dot product
     return linePnt + lineDir * d;
 }
 
-// return topleft corner only in meter ( p is plane equation z = p[0]x + p[1]y + p[2] ) 
+// ( p is plane equation z = p[0]x + p[1]y + p[2] ) 
 Vec3f CamListener::findProjectionCorner(Vec3f p, float angle_h, float angle_v) 
 {
 	Vec3f v1(projAxis[0], projAxis[1], projAxis[2]);
 	Vec3f tr = NearestPointOnLine(Vec3f(projAxis[3], projAxis[4], projAxis[5]), v1, Vec3f(0,0,0));
-	float gamma = atan(v1[1]/v1[2]);
-	Vec3f r1(0, cos(gamma), sin(gamma));
+	float gamma = std::atan(v1[1]/v1[2]);
+	Vec3f r1(0, std::cos(gamma), std::sin(gamma));
 	Vec3f v2 = rotate(v1, r1, angle_h);
     Vec3f r2 = rotate(Vec3f(1,0,0), r1, angle_h);
     Vec3f v3 = rotate(v2,r2,angle_v);
+    // TODO burdan yukarıyı bir kere hesaplayıp kaydet. ( Kose vektorleri değişmiyor çunku)
     
     float t = (p[0]*tr[0] + p[1]*tr[1] + p[2] - tr[2]) / (v3[2] - p[0]*v3[0] - p[1]*v3[1] ) ;
     return Vec3f(v3[0]*t + tr[0], v3[1]*t + tr[1], v3[2]*t + tr[2]);
