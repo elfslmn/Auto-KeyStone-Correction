@@ -21,9 +21,11 @@ using namespace ark;
 class CamListener : public royale::IDepthDataListener {
 
 const int MARGIN = 10;
-// 2 ye bolunce daha iyi sonuç veriyor ama bolmeden zaten yarım fov??
-const float hor_fov = 0.328/2; // in radian
-const float ver_fov = 0.190/2;
+
+const float hor_fov = 0.328; // in radian
+const float ver_fov = 0.190;
+const int proj_width = 1280;
+const int proj_height = 720;
 
 public:
     // Constructors
@@ -55,20 +57,23 @@ private:
     void setChannel(Mat & xyzMap, Mat & zChannel);
     void calculateProjCornerPos(Vec3f plane);
     Point2i distort(Point2i point);
-    Point2i findPixelCoord(Vec3f xyz);
+    Point2i findPixelCoord(Point3f p);
     void calculateProjectionCornerVectors();
+    bool correctKeyStone();
 
     // Private variables
     uint16_t cam_width, cam_height;
     mutex flagMutex;
     vector<Vec3f> projCornerVectors;
-    vector<Vec3f> projCornerXyz;
+    vector<Point3f> projCornerXyz;
     Vec3f translation;
+    Mat image;
 
     int frame = 0;
     string recordFolder = "record\\";
 
     PlaneDetector::Ptr planeDetector;
     vector<FramePlane::Ptr> planes;
+    FramePlane::Ptr mainPlane;
 
 };

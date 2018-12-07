@@ -47,10 +47,10 @@ int main (int argc, char *argv[])
    namedWindow ("[Plane Debug]", WINDOW_AUTOSIZE);
    namedWindow ("FloodFill", WINDOW_AUTOSIZE);
 
-   /*namedWindow ("Projector", WINDOW_NORMAL);
+   namedWindow ("Projector", WINDOW_NORMAL);
    setWindowProperty("Projector", WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
    moveWindow("Projector", 1366, 0);
-   Mat mid(72,128, CV_8U, Scalar(0));
+   /*Mat mid(72,128, CV_8U, Scalar(0));
    circle(mid, Point(64, 36), 3, 120);
    circle(mid, Point(64, 36), 1, 255);
    imshow("Projector", mid);*/
