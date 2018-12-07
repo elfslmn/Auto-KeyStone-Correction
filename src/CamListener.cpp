@@ -26,7 +26,7 @@ void CamListener::initialize(uint16_t width, uint16_t height)
    
    calculateProjectionCornerVectors();
    projCornerXyz = vector<Point3f>(4,Point3f(0,0,0));
-   image = imread("lena.png",1);
+   image = imread("checker.jpeg",1);
    resize(image,image, Size(1280,720));
 
    LOGD("Cam listener initialized with (%d,%d)", width, height);
@@ -79,9 +79,9 @@ void CamListener::processImages()
 
    vector<Mat> channels(3);
    split(xyzMap, channels);
-   // blur image (7 for low exposure)
-   //medianBlur(channels[2], channels[2], 3);
-   //setChannel(xyzMap, channels[2]);
+   //blur image (7 for low exposure)
+   medianBlur(channels[2], channels[2], 3);
+   setChannel(xyzMap, channels[2]);
 
    if(visualizeImage(channels[2], depthImage8, 1.0, true))
    {
@@ -100,6 +100,13 @@ void CamListener::processImages()
    }
    if(mainPlane != nullptr)
    {
+   	  Vec3f normal = mainPlane->getNormalVector();
+   	  cout << "Main plane -------------------------------"
+		   << "\nEquation: "  << mainPlane->equation
+		   << "\nNormal  : "  << normal
+		   << "\nhorizontal: "<< atan(normal[0]/normal[2])*180/PI 
+		   << "\nvertical  : "<< atan(normal[1]/normal[2])*180/PI << endl;
+		        	 
       calculateProjCornerPos(mainPlane->equation);
       
       Point3f corner = projCornerXyz[0];
@@ -443,8 +450,6 @@ bool CamListener::correctKeyStone()
 	float diffHor = projCornerXyz[0].z - projCornerXyz[2].z;
 	float diffVer = projCornerXyz[0].z - projCornerXyz[1].z;
 	diffVer = diffVer/720*1280;
-	cout << "diffHor: " << diffHor << endl;
-	cout << "diffVer: " << diffVer << endl;
 	
 	if(abs(diffHor) < 0.003 && abs(diffVer) < 0.003 )
 	{

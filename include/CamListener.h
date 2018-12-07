@@ -8,10 +8,7 @@
 #include "opencv2/opencv.hpp"
 #include <mutex>
 
-#include "stdafx.h"
 #include "PlaneDetector.h"
-#include "Util.h"
-#include "Visualizer.h"
 
 using namespace royale;
 using namespace std;

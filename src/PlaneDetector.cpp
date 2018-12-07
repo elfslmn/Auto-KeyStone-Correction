@@ -47,22 +47,12 @@ namespace ark {
         util::computeNormalMap(image, normalMap, params->normalCalculationDistance, params->normalResolution, false);
         detectPlaneHelper(image, normalMap, equations, points, pointsXYZ, params);
 
-        #ifdef DEBUG
-        if(equations.size() != 0) std::cout << "PLANE DETECTED !! : " << equations.size() << std::endl;
-        #endif
         for (uint i = 0; i < equations.size(); ++i) {
             FramePlane::Ptr planePtr = std::make_shared<FramePlane>
                 (equations[i], points[i], pointsXYZ[i], image, params);
 
             if (planePtr->getSurfArea() > params->planeMinArea) {
                 planes.emplace_back(planePtr);
-                #ifdef DEBUG
-                Vec3f normal = planePtr->getNormalVector();
-		        std::cout << "Equation: " <<equations[i]
-		        		  << "\nNormal: " << normal
-		        		  << "\narctan(x/z): "<< atan(normal[0]/normal[2])*180/PI 
-		        		  << "\narctan(y/z): "<< atan(normal[1]/normal[2])*180/PI << std::endl;
-		        #endif
             }
         }
 

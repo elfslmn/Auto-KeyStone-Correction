@@ -52,13 +52,9 @@ set(
   ${INCLUDE_DIR}/CamListener.h
   ${INCLUDE_DIR}/FrameObject.h
   ${INCLUDE_DIR}/DetectionParams.h
-  ${INCLUDE_DIR}/Hand.h
   ${INCLUDE_DIR}/FramePlane.h
-  ${INCLUDE_DIR}/Util.h	
-  ${INCLUDE_DIR}/Visualizer.h	
-  ${INCLUDE_DIR}/HandClassifier.h
+  ${INCLUDE_DIR}/Util.h		
   ${INCLUDE_DIR}/Detector.h
-  ${INCLUDE_DIR}/HandDetector.h
   ${INCLUDE_DIR}/PlaneDetector.h
   ${INCLUDE_DIR}/Version.h
   ${INCLUDE_DIR}/stdafx.h
@@ -72,10 +68,6 @@ set(
   ${SRC_DIR}/Util.cpp
   ${SRC_DIR}/FrameObject.cpp
   ${SRC_DIR}/FramePlane.cpp
-  ${SRC_DIR}/Hand.cpp
-  ${SRC_DIR}/HandClassifier.cpp
-  ${SRC_DIR}/HandDetector.cpp
-  ${SRC_DIR}/Visualizer.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} main.cpp)
