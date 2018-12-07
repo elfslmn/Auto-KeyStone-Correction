@@ -107,28 +107,28 @@ void CamListener::processImages()
       int x = distIm.x; 
       int y = distIm.y;
       if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      LOGD("TL(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner.x*100, corner.y*100, corner.z*100, x,y);
+      //LOGD("TL(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner.x*100, corner.y*100, corner.z*100, x,y);
       
       corner = projCornerXyz[1];
       distIm = distort(findPixelCoord(corner));
       x = distIm.x; 
       y = distIm.y;
       if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      LOGD("BL(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner.x*100, corner.y*100, corner.z*100, x,y);
+      //LOGD("BL(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner.x*100, corner.y*100, corner.z*100, x,y);
       
       corner = projCornerXyz[2];
       distIm = distort(findPixelCoord(corner));
       x = distIm.x; 
       y = distIm.y;
       if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      LOGD("TR(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner.x*100, corner.y*100, corner.z*100, x,y);
+      //LOGD("TR(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner.x*100, corner.y*100, corner.z*100, x,y);
       
       corner = projCornerXyz[3];
       distIm = distort(findPixelCoord(corner));
       x = distIm.x; 
       y = distIm.y;
       if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      LOGD("BR(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner.x*100, corner.y*100, corner.z*100, x,y);
+      //LOGD("BR(cm):\t (%.3f, %.3f, %.3f)\t x,y = %d,%d", corner.x*100, corner.y*100, corner.z*100, x,y);
       
       correctKeyStone();
 
@@ -439,79 +439,154 @@ Point2i CamListener::findPixelCoord(Point3f p)
 
 // correct only left right distortion
 bool CamListener::correctKeyStone()
-{
+{    	
+	float diffHor = projCornerXyz[0].z - projCornerXyz[2].z;
+	float diffVer = projCornerXyz[0].z - projCornerXyz[1].z;
+	diffVer = diffVer/720*1280;
+	cout << "diffHor: " << diffHor << endl;
+	cout << "diffVer: " << diffVer << endl;
+	
+	if(abs(diffHor) < 0.003 && abs(diffVer) < 0.003 )
+	{
+		cout << "No severe keystone" << endl;
+		imshow("Projector", image);
+		return true;
+	}
+	
 	Point2f inputQuad[4]; 
+	Point2f outputQuad[4];
+	
     inputQuad[0] = Point2f(0,0);// tl;
     inputQuad[1] = Point2f(0,720); // bl;
     inputQuad[2] = Point2f(1280,0);// tr;
     inputQuad[3] = Point2f(1280,720); // br;
-    	
-	// compare depths of tl - tr
-	if(projCornerXyz[0].z < projCornerXyz[2].z)
-	{
-		Point3f corrTR = Point3f(projCornerXyz[2].x, projCornerXyz[0].y, projCornerXyz[2].z);
-		Point3f corrBR = Point3f(projCornerXyz[3].x, projCornerXyz[1].y, projCornerXyz[3].z);
+	
+	// correct horizontal distortion
+	if(abs(diffHor) > abs(diffVer))
+	{	
+		// right side is farther
+		if(diffHor < 0)
+		{
+			Point3f corrTR = Point3f(projCornerXyz[2].x, projCornerXyz[0].y, projCornerXyz[2].z);
+			Point3f corrBR = Point3f(projCornerXyz[3].x, projCornerXyz[1].y, projCornerXyz[3].z);
 		
-		auto distIm = distort(findPixelCoord(corrTR));
-      	int x = distIm.x; 
-      	int y = distIm.y;
-      	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      	
-      	distIm = distort(findPixelCoord(corrBR));
-      	x = distIm.x; 
-      	y = distIm.y;
-      	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-    	
-    	Point2f tr = findPixelCoord(projCornerXyz[2]);
-    	Point2f br = findPixelCoord(projCornerXyz[3]);
-    	float hr = br.y - tr.y ;
-    	float yt = findPixelCoord(corrTR).y;
-    	float yb = findPixelCoord(corrBR).y;
-    	
-    	Point2f outputQuad[4];
-    	outputQuad[0] = Point2f(0,0);
-    	outputQuad[1] = Point2f(0,720);
-    	outputQuad[2] = Point2f(1280, (float)720/hr*( yt - tr.y )); 
-    	outputQuad[3] = Point2f(1280, (float)720/hr*( yb - tr.y ));     	
-    	
-    	Mat output;
-    	Mat pers = getPerspectiveTransform( inputQuad, outputQuad );
-    	warpPerspective(image,output,pers,image.size());
-    	imshow("Projector", output);
+			auto distIm = distort(findPixelCoord(corrTR));
+		  	int x = distIm.x; 
+		  	int y = distIm.y;
+		  	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+		  	
+		  	distIm = distort(findPixelCoord(corrBR));
+		  	x = distIm.x; 
+		  	y = distIm.y;
+		  	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+			
+			Point2f tr = findPixelCoord(projCornerXyz[2]);
+			Point2f br = findPixelCoord(projCornerXyz[3]);
+			float hr = br.y - tr.y ;
+			float yt = findPixelCoord(corrTR).y;
+			float yb = findPixelCoord(corrBR).y;
+			
+			outputQuad[0] = Point2f(0,0);
+			outputQuad[1] = Point2f(0,720);
+			outputQuad[2] = Point2f(1280, (float)720/hr*( yt - tr.y )); 
+			outputQuad[3] = Point2f(1280, (float)720/hr*( yb - tr.y ));     	
+			
+		}
+		// left side is farther
+		else
+		{
+			Point3f corrTL = Point3f(projCornerXyz[0].x, projCornerXyz[2].y, projCornerXyz[0].z);
+			Point3f corrBL = Point3f(projCornerXyz[1].x, projCornerXyz[3].y, projCornerXyz[1].z);
+		
+			auto distIm = distort(findPixelCoord(corrTL));
+		  	int x = distIm.x; 
+		  	int y = distIm.y;
+		  	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+		  	
+		  	distIm = distort(findPixelCoord(corrBL));
+		  	x = distIm.x; 
+		  	y = distIm.y;
+		  	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+		
+			Point2f tl = findPixelCoord(projCornerXyz[0]);
+			Point2f bl = findPixelCoord(projCornerXyz[1]);
+			float hl = bl.y - tl.y ;
+			float yt = findPixelCoord(corrTL).y;
+			float yb = findPixelCoord(corrBL).y;
+			
+			outputQuad[0] = Point2f(0, (float)720/hl*( yt - tl.y )); 
+			outputQuad[1] = Point2f(0, (float)720/hl*( yb - tl.y )); 
+			outputQuad[2] = Point2f(1280,0); 
+			outputQuad[3] = Point2f(1280,720);    	
+
+		}
 	}
+	// correct vertical distortion
 	else
 	{
-		Point3f corrTL = Point3f(projCornerXyz[0].x, projCornerXyz[2].y, projCornerXyz[0].z);
-		Point3f corrBL = Point3f(projCornerXyz[1].x, projCornerXyz[3].y, projCornerXyz[1].z);
+		// top side is farther
+		if(diffVer > 0)
+		{
+			Point3f corrTL = Point3f(projCornerXyz[1].x, projCornerXyz[0].y, projCornerXyz[0].z);
+			Point3f corrTR = Point3f(projCornerXyz[3].x, projCornerXyz[2].y, projCornerXyz[2].z);
 		
-		auto distIm = distort(findPixelCoord(corrTL));
-      	int x = distIm.x; 
-      	int y = distIm.y;
-      	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
-      	
-      	distIm = distort(findPixelCoord(corrBL));
-      	x = distIm.x; 
-      	y = distIm.y;
-      	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+			auto distIm = distort(findPixelCoord(corrTL));
+		  	int x = distIm.x; 
+		  	int y = distIm.y;
+		  	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+		  	
+		  	distIm = distort(findPixelCoord(corrTR));
+		  	x = distIm.x; 
+		  	y = distIm.y;
+		  	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+			
+			Point2f tl = findPixelCoord(projCornerXyz[0]);
+			Point2f tr = findPixelCoord(projCornerXyz[2]);
+			float top_width = tr.x - tl.x;
+			float xl = findPixelCoord(corrTL).x;
+			float xr = findPixelCoord(corrTR).x;
+			
+			outputQuad[0] = Point2f((float)1280/top_width*( xl - tl.x ), 0); 
+			outputQuad[1] = Point2f(0,720); 
+			outputQuad[2] = Point2f((float)1280/top_width*( xr - tl.x ), 0);  
+			outputQuad[3] = Point2f(1280,720);      	
+
+		}
+		else
+		{
+			Point3f corrBL = Point3f(projCornerXyz[0].x, projCornerXyz[1].y, projCornerXyz[1].z);
+			Point3f corrBR = Point3f(projCornerXyz[2].x, projCornerXyz[3].y, projCornerXyz[3].z);
 		
-    	Point2f tl = findPixelCoord(projCornerXyz[0]);
-    	Point2f bl = findPixelCoord(projCornerXyz[1]);
-    	float hl = bl.y - tl.y ;
-    	float yt = findPixelCoord(corrTL).y;
-    	float yb = findPixelCoord(corrBL).y;
-    	
-    	Point2f outputQuad[4];
-    	outputQuad[0] = Point2f(0, (float)720/hl*( yt - tl.y )); 
-    	outputQuad[1] = Point2f(0, (float)720/hl*( yb - tl.y )); 
-    	outputQuad[2] = Point2f(1280,0); 
-    	outputQuad[3] = Point2f(1280,720);    	
-    	
-    	Mat output;
-    	Mat pers = getPerspectiveTransform( inputQuad, outputQuad );
-    	warpPerspective(image,output,pers,image.size());
-    	imshow("Projector", output);
-	}
+			auto distIm = distort(findPixelCoord(corrBL));
+		  	int x = distIm.x; 
+		  	int y = distIm.y;
+		  	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+		  	
+		  	distIm = distort(findPixelCoord(corrBR));
+		  	x = distIm.x; 
+		  	y = distIm.y;
+		  	if(x >= 0 && x < cam_width && y >=0 && y <cam_height) grayImage8.at<uint8_t>(y,x) = 0;
+			
+			Point2f bl = findPixelCoord(projCornerXyz[1]);
+			Point2f br = findPixelCoord(projCornerXyz[3]);
+			float bot_width = br.x - bl.x;
+			float xl = findPixelCoord(corrBL).x;
+			float xr = findPixelCoord(corrBR).x;
+			
+			outputQuad[0] = Point2f(0,0); 
+			outputQuad[1] = Point2f((float)1280/bot_width*( xl - bl.x ), 720); 
+			outputQuad[2] = Point2f(1280,0);  
+			outputQuad[3] = Point2f((float)1280/bot_width*( xr - bl.x ), 720);  
+			    	
+		}
+		
+	} 
 	
+	Mat output;
+	Mat pers = getPerspectiveTransform( inputQuad, outputQuad );
+	warpPerspective(image,output,pers,image.size());
+	imshow("Projector", output);
+		
 }
 
 
