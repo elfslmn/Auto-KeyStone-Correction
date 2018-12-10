@@ -64,6 +64,10 @@ private:
     mutex flagMutex;
     vector<Vec3f> projCornerVectors;
     vector<Point3f> projCornerXyz;
+    Point2f tl;
+    Point2f bl;
+    Point2f tr;
+    Point2f br;
     Vec3f translation;
     Mat image;
 

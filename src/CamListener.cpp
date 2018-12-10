@@ -321,7 +321,7 @@ Vec3f NearestPointOnLine(Vec3f linePnt, Vec3f lineDir, Vec3f pnt)
    return linePnt + lineDir * d;
 }
 
-// ( p is plane equation z = p[0]x + p[1]y + p[2] )
+// p is plane equation z = p[0]x + p[1]y + p[2]
 void CamListener::calculateProjCornerPos(Vec3f p)
 {
    float t;
@@ -331,6 +331,15 @@ void CamListener::calculateProjCornerPos(Vec3f p)
       / (v[2] - p[0]*v[0] - p[1]*v[1] ) ;
       projCornerXyz[i] = Point3f(v[0]*t + translation[0], v[1]*t + translation[1], v[2]*t + translation[2]);
    }
+   tl = findPixelCoord(projCornerXyz[0]);
+   bl = findPixelCoord(projCornerXyz[1]);
+   tr = findPixelCoord(projCornerXyz[2]);
+   br = findPixelCoord(projCornerXyz[3]);
+
+   cout <<"0 - TL: " << projCornerXyz[0] <<"\t" << tl << endl;
+   cout <<"1 - BL: " << projCornerXyz[1] <<"\t" << bl << endl;
+   cout <<"2 - TR: " << projCornerXyz[2] <<"\t" << tr << endl;
+   cout <<"3 - BR: " << projCornerXyz[3] <<"\t" << br << endl;
 
 }
 
@@ -420,7 +429,7 @@ void CamListener::showPoint(const Point3f p){
    }
 }
 
-
+// plane->equation: z = p[0]x + p[1]y + p[2]
 bool CamListener::correctKeyStone(FramePlane::Ptr plane)
 {
    calculateProjCornerPos(plane->equation);
@@ -433,7 +442,7 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
    float angle_h = atan(normal[0]/normal[2])*180/PI;
    float angle_v = atan(normal[1]/normal[2])*180/PI;
 
-   if(abs(angle_h) < 5.0 && abs(angle_v) < 5.0)
+   if(abs(angle_h) < 3.0 && abs(angle_v) < 3.0)
    {
       cout << "No severe keystone" << endl;
       imshow("Projector", image);
@@ -449,7 +458,8 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
    inputQuad[3] = Point2f(1280,720); // br;
 
    // correct horizontal distortion
-   if(abs(angle_h) > 5.0 && abs(angle_v) < 5.0 )
+   //if(abs(angle_h) > 5.0 && abs(angle_v) < 5.0 )
+   if(abs(angle_h) > abs(angle_v))
    {
       // right side is farther
       if(angle_h < 0)
@@ -460,8 +470,6 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
          showPoint(corrTR);
          showPoint(corrBR);
 
-         Point2f tr = findPixelCoord(projCornerXyz[2]);
-         Point2f br = findPixelCoord(projCornerXyz[3]);
          float hr = br.y - tr.y ;
          float yt = findPixelCoord(corrTR).y;
          float yb = findPixelCoord(corrBR).y;
@@ -470,7 +478,6 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
          outputQuad[1] = Point2f(0,720);
          outputQuad[2] = Point2f(1280, (float)720/hr*( yt - tr.y ));
          outputQuad[3] = Point2f(1280, (float)720/hr*( yb - tr.y ));
-
       }
       // left side is farther
       else
@@ -481,8 +488,6 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
          showPoint(corrTL);
          showPoint(corrBL);
 
-         Point2f tl = findPixelCoord(projCornerXyz[0]);
-         Point2f bl = findPixelCoord(projCornerXyz[1]);
          float hl = bl.y - tl.y ;
          float yt = findPixelCoord(corrTL).y;
          float yb = findPixelCoord(corrBL).y;
@@ -491,10 +496,10 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
          outputQuad[1] = Point2f(0, (float)720/hl*( yb - tl.y ));
          outputQuad[2] = Point2f(1280,0);
          outputQuad[3] = Point2f(1280,720);
-
       }
    }
    // correct vertical distortion
+   //else if(abs(angle_h) < 5.0 && abs(angle_v) > 5.0 )
    else
    {
       // top side is farther
@@ -506,8 +511,6 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
          showPoint(corrTL);
          showPoint(corrTR);
 
-         Point2f tl = findPixelCoord(projCornerXyz[0]);
-         Point2f tr = findPixelCoord(projCornerXyz[2]);
          float top_width = tr.x - tl.x;
          float xl = findPixelCoord(corrTL).x;
          float xr = findPixelCoord(corrTR).x;
@@ -516,7 +519,6 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
          outputQuad[1] = Point2f(0,720);
          outputQuad[2] = Point2f((float)1280/top_width*( xr - tl.x ), 0);
          outputQuad[3] = Point2f(1280,720);
-
       }
       else
       {
@@ -526,8 +528,6 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
          showPoint(corrBL);
          showPoint(corrBR);
 
-         Point2f bl = findPixelCoord(projCornerXyz[1]);
-         Point2f br = findPixelCoord(projCornerXyz[3]);
          float bot_width = br.x - bl.x;
          float xl = findPixelCoord(corrBL).x;
          float xr = findPixelCoord(corrBR).x;
@@ -536,10 +536,63 @@ bool CamListener::correctKeyStone(FramePlane::Ptr plane)
          outputQuad[1] = Point2f((float)1280/bot_width*( xl - bl.x ), 720);
          outputQuad[2] = Point2f(1280,0);
          outputQuad[3] = Point2f((float)1280/bot_width*( xr - bl.x ), 720);
-
       }
 
    }
+   // Correct both horizontal and vertical
+   /*else{
+      outputQuad[0] = Point2f(0,0);// tl;
+      outputQuad[1] = Point2f(0,720); // bl;
+      outputQuad[2] = Point2f(1280,0);// tr;
+      outputQuad[3] = Point2f(1280,720); // br;
+
+      Point3f corr = Point3f(0,0,0);
+
+      if(angle_h > 0 && angle_v > 0 ){ // correct TL
+         corr.x = projCornerXyz[1].x;
+         corr.y = projCornerXyz[2].y;
+         corr.z = plane->getZ(corr.x,corr.y);
+
+         outputQuad[0] =  findPixelCoord(corr);
+         outputQuad[0].x = outputQuad[0].x*1280/cam_width;
+         outputQuad[0].y = outputQuad[0].y*720/cam_height;
+      }
+      else if(angle_h > 0 && angle_v < 0 ){ // correct BL
+         corr.x = projCornerXyz[0].x;
+         corr.y = projCornerXyz[3].y;
+         corr.z = plane->getZ(corr.x,corr.y);
+
+         outputQuad[1] =  findPixelCoord(corr);
+         outputQuad[1].x = outputQuad[1].x*1280/cam_width;
+         outputQuad[1].y = outputQuad[1].y*720/cam_height;
+      }
+      else if(angle_h < 0 && angle_v > 0 ){ // correct TR
+         corr.x = projCornerXyz[3].x;
+         corr.y = projCornerXyz[0].y;
+         corr.z = plane->getZ(corr.x,corr.y);
+
+         outputQuad[2] =  findPixelCoord(corr);
+
+         float top_width = tr.x - tl.x;
+         outputQuad[2].x = (float)1280/top_width*( outputQuad[2].x - tl.x );
+
+         float right_height = br.y - tr.y ;
+         outputQuad[2].y = (float)720/right_height*( outputQuad[2].y - tr.y );
+      }
+      else{ // correct BR
+         corr.x = projCornerXyz[2].x;
+         corr.y = projCornerXyz[1].y;
+         corr.z = plane->getZ(corr.x,corr.y);
+
+         outputQuad[3] =  findPixelCoord(corr);
+         float bottom_width = br.x - bl.x;
+         outputQuad[3].x = (float)1280/bottom_width*( outputQuad[3].x - bl.x );
+
+         float right_height = br.y - tr.y ;
+         outputQuad[3].y = (float)720/right_height*( outputQuad[3].y - tr.y );
+      }
+      showPoint(corr);
+   }*/
 
    Mat output;
    Mat pers = getPerspectiveTransform( inputQuad, outputQuad );

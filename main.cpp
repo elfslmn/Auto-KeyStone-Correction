@@ -79,13 +79,13 @@ int main (int argc, char *argv[])
             }
          }
          sort(file_names.begin(), file_names.end());
-         
+
          // initialize cam listener
          listener.initialize(224, 171);
          FileStorage fs1(file_path+"/Specs", FileStorage::READ);
          fs1["cameraMatrix"] >> listener.cameraMatrix;
          fs1["distortionCoefficients"] >> listener.distortionCoefficients;
-       
+
          string path;
          bool stop = false;
          for(int i=0; i< file_names.size();)
@@ -278,7 +278,7 @@ int main (int argc, char *argv[])
       {
 		 listener.calculateProjectionAxis();
       }
-    
+
    }
 
    // stop capture mode
