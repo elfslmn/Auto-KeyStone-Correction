@@ -56,7 +56,8 @@ private:
     Point2i distort(Point2i point);
     Point2i findPixelCoord(Point3f p);
     void calculateProjectionCornerVectors();
-    bool correctKeyStone();
+    bool correctKeyStone(FramePlane::Ptr plane);
+    void showPoint(const Point3f p);
 
     // Private variables
     uint16_t cam_width, cam_height;
